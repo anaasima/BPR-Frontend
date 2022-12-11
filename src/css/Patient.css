@@ -35,3 +35,8 @@
   margin-top: 1%;
   margin-left: 2%;
 }
+
+.dicomImage {
+  width: 512px;
+  height: 512px;
+}

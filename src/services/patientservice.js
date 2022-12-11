@@ -10,8 +10,8 @@ class PatientWebClientService {
     return http.get(`${this.urlResource}`);
   }
 
-  getPatientImageById(patientId) {
-    return http.get(`${this.urlResource}/images/${patientId}`, authHeader());
+  savePatientFilteredImage(dicomFile) {
+    return http.post(`${this.urlResource}/images`, dicomFile, authHeader());
   }
 
   getPatientByCpr(patientCpr) {

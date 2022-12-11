@@ -3,104 +3,86 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { tensor } from "@tensorflow/tfjs";
 import { loadGraphModel } from "@tensorflow/tfjs-converter";
 import "../../css/Patient.css";
-import patientservice from "../../services/patientservice";
-import loadingImage from "../../utils/loading.png";
 import AppHeader from "../AppHeader";
 import PatientHeader from "./PatientHeader";
-import ImagesContainer from "./ImagesContainer";
 import { reshapePixels } from "../../utils/imageUtil";
+import * as cornerstone from "cornerstone-core";
+import * as cornerstoneMath from "cornerstone-math";
+import * as cornerstoneTools from "cornerstone-tools";
+import * as cornerstoneWADOImageLoader from "cornerstone-wado-image-loader";
+import * as dicomParser from "dicom-parser";
+import Hammer from "hammerjs";
+import patientservice from "../../services/patientservice";
+
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+cornerstoneTools.external.Hammer = Hammer;
+cornerstoneTools.init();
 
 const MODEL_URL =
   "https://raw.githubusercontent.com/Toni751/BPR-Backend/master/model/model.json";
-let originalPixels = [];
-let filteredPixels = [];
+
+const IMAGE_BASE_URL =
+  "wadouri:https://raw.githubusercontent.com/Toni751/RIS-PACS-Mock/master/images/";
 
 const Patient = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [patient, setPatient] = useState(location.state);
 
-  const [imageSrc, setImageSrc] = useState(loadingImage);
-  const [filteredImageSrc, setFilteredImageSrc] = useState(loadingImage);
-
-  const [originalIntensity, setOriginalIntesity] = useState(3);
-  const [filteredIntensity, setFilteredIntesity] = useState(3);
-
   useEffect(() => {
-    generatePixelImage();
+    getWadoImage();
   }, []);
 
-  const generatePixelImage = async () => {
+  const getWadoImage = async () => {
+    const element = document.getElementById("dicomImage");
+    cornerstone.enable(element);
+
+    const imageUrl = IMAGE_BASE_URL + patient.accession + ".dcm";
+    const image = await cornerstone.loadImage(imageUrl);
+    const pixels = image.getPixelData();
+
+    const viewport = cornerstone.getDefaultViewportForImage(element, image);
+    cornerstone.displayImage(element, image, viewport);
+
+    await filterPixelArray(pixels, image);
+    cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+    cornerstoneTools.addTool(cornerstoneTools.ZoomMouseWheelTool);
+
+    cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
+    cornerstoneTools.setToolActive("ZoomMouseWheel", { mouseButtonMask: 1 });
+  };
+
+  const filterPixelArray = async (pixels, image) => {
+    const model = await loadGraphModel(MODEL_URL);
+    const predict = model.predict(tensor(reshapePixels(pixels)));
+    const filteredPixels = await predict.data();
+
+    const intFilteredPixels = mapFilteredPixels(filteredPixels);
+    image.imageFrame.pixelData = intFilteredPixels;
+
+    const element = document.getElementById("dicomImageFiltered");
+    cornerstone.enable(element);
+
+    const viewport = cornerstone.getDefaultViewportForImage(element, image);
+    cornerstone.displayImage(element, image, viewport);
+
+    // This request could be broken up into multiple batches, as the dicom file is very large
     patientservice
-      .getPatientImageById(patient.accession)
-      .then((resp) => {
-        originalPixels = Object.values(resp.data);
-        pixelArrayToImage(originalPixels, true, originalIntensity);
-        filterPixelArray(Object.values(resp.data));
-      })
+      .savePatientFilteredImage(image.data.byteArray)
+      .then((response) => console.log(response.data))
       .catch((err) => console.log(err));
   };
 
-  const pixelArrayToImage = (pixels, isOriginal, intensity) => {
-    let canvas = document.createElement("canvas");
-    let ctx = canvas.getContext("2d");
-
-    const dim = 512;
-    canvas.width = dim;
-    canvas.height = dim;
-
-    let imgData = ctx.getImageData(0, 0, dim, dim);
-    let data = imgData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const value = isOriginal
-        ? (pixels[i / 4] * intensity) / 30
-        : pixels[i / 4] * intensity * 100;
-      data[i] = Math.floor(Math.min(255, value));
-      data[i + 1] = Math.floor(Math.min(255, value));
-      data[i + 2] = Math.floor(Math.min(255, value));
-      data[i + 3] = 255;
+  const mapFilteredPixels = (pixels) => {
+    const pixels_16 = new Uint16Array(512 * 512);
+    for (let i = 0; i < 512 * 512; i++) {
+      pixels_16[i] = Math.floor(pixels[i] * 2938);
     }
-
-    ctx.putImageData(imgData, 0, 0);
-    isOriginal
-      ? setImageSrc(canvas.toDataURL())
-      : setFilteredImageSrc(canvas.toDataURL());
-  };
-
-  const filterPixelArray = async (pixels) => {
-    const model = await loadGraphModel(MODEL_URL);
-    const predict = model.predict(tensor(reshapePixels(pixels)));
-    filteredPixels = await predict.data();
-    pixelArrayToImage(filteredPixels, false, filteredIntensity);
-  };
-
-  const handleOriginalIntensityChange = (value) => {
-    setOriginalIntesity(value);
-    pixelArrayToImage(originalPixels, true, value);
-  };
-
-  const handleFilteredIntensityChange = (value) => {
-    setFilteredIntesity(value);
-    pixelArrayToImage(filteredPixels, false, value);
-  };
-
-  const getImages = () => {
-    const originalImage = {};
-    originalImage.src = imageSrc;
-    originalImage.title = "Original";
-    originalImage.intensity = originalIntensity;
-    originalImage.handleIntensityChange = handleOriginalIntensityChange;
-
-    const filteredImage = {};
-    filteredImage.src = filteredImageSrc;
-    filteredImage.title = "Filtered";
-    filteredImage.intensity = filteredIntensity;
-    filteredImage.handleIntensityChange = handleFilteredIntensityChange;
-
-    const images = [];
-    images.push(originalImage);
-    images.push(filteredImage);
-    return images;
+    return pixels_16;
   };
 
   return (
@@ -112,7 +94,10 @@ const Patient = () => {
       <div className="patientContainer">
         <PatientHeader patient={patient} />
         <hr />
-        <ImagesContainer images={getImages()} />
+        <div className="imagesContainer">
+          <div id="dicomImage" className="dicomImage"></div>
+          <div id="dicomImageFiltered" className="dicomImage"></div>
+        </div>
       </div>
     </React.Fragment>
   );
