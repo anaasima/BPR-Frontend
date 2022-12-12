@@ -63,7 +63,8 @@ const PatientsTable = () => {
         </div>
       ) : (
         <p className="noPatientsFoundText">
-          No patients scheduled with the given criterias
+          No patients scheduled with the given criterias. Try refreshing the
+          page.
         </p>
       )}
     </div>

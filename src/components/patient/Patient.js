@@ -95,8 +95,14 @@ const Patient = () => {
         <PatientHeader patient={patient} />
         <hr />
         <div className="imagesContainer">
-          <div id="dicomImage" className="dicomImage"></div>
-          <div id="dicomImageFiltered" className="dicomImage"></div>
+          <div className="dicomImageContainer">
+            <div id="dicomImage" className="dicomImage"></div>
+            <span className="dicomImageLabel">Original</span>
+          </div>
+          <div className="dicomImageContainer">
+            <div id="dicomImageFiltered" className="dicomImage"></div>
+            <span className="dicomImageLabel">Filtered</span>
+          </div>
         </div>
       </div>
     </React.Fragment>
