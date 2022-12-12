@@ -71,10 +71,10 @@ const Patient = () => {
     cornerstone.displayImage(element, image, viewport);
 
     // This request could be broken up into multiple batches, as the dicom file is very large
-    patientservice
-      .savePatientFilteredImage(image.data.byteArray)
-      .then((response) => console.log(response.data))
-      .catch((err) => console.log(err));
+    // patientservice
+    //   .savePatientFilteredImage(image.data.byteArray)
+    //   .then((response) => console.log(response.data))
+    //   .catch((err) => console.log(err));
   };
 
   const mapFilteredPixels = (pixels) => {
