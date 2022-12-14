@@ -34,6 +34,11 @@ const Patient = () => {
   const [patient, setPatient] = useState(location.state);
 
   useEffect(() => {
+    if (localStorage.getItem("app-token") === null) {
+      navigate("/");
+      return;
+    }
+
     getWadoImage();
   }, []);
 
