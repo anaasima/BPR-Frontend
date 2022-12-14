@@ -8,14 +8,14 @@ const PatientHeader = ({ patient }) => {
         className="patientHeaderRow"
         style={{ color: "#0d6efd", fontWeight: 500, marginBottom: "1%" }}
       >
-        <span>{patient.full_name}</span>
-        <span>{patient.cpr}</span>
+        <span>{patient && patient.full_name}</span>
+        <span>{patient && patient.cpr}</span>
       </div>
       <div className="patientHeaderRow">
-        <span>Accession nr: {patient.accession}</span>
+        <span>Accession nr: {patient && patient.accession}</span>
       </div>
       <div className="patientHeaderRow">
-        <span>Date: {convertDate(patient.start)}</span>
+        <span>Date: {convertDate(patient && patient.start)}</span>
       </div>
     </div>
   );
